@@ -79,7 +79,7 @@ Without a reachable database the API still starts. `/api/v1/health` then returns
 
 ```bash
 cd backend  && uv run ruff check . && uv run ruff format --check . && uv run mypy app tests && uv run pytest
-cd frontend && npm run lint && npx tsc --noEmit && npm run build
+cd frontend && npm run lint && npm run typecheck && npm run build
 ```
 
 The database integration test is skipped locally when no Postgres is reachable. CI sets `REQUIRE_DB=1` so it can't be skipped there.
