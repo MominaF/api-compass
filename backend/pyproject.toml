@@ -9,8 +9,11 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
+    "cryptography<49 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "cryptography>=50 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
     "fastapi>=0.162.0",
     "pydantic-settings>=2.16.2",
+    "pyjwt[crypto]>=2.15.1",
     "sqlalchemy[asyncio]>=2.1.6",
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.54.0",

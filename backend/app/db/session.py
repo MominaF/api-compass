@@ -2,6 +2,8 @@
 
 import asyncio
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
@@ -24,8 +26,20 @@ class Database:
         )
         self.sessionmaker = async_sessionmaker(self.engine, expire_on_commit=False)
 
-    async def session(self) -> AsyncIterator[AsyncSession]:
-        async with self.sessionmaker() as session:
+    @asynccontextmanager
+    async def user_session(self, user_id: UUID) -> AsyncIterator[AsyncSession]:
+        """Open a transaction in which row-level security applies to `user_id`.
+
+        The connection's login role may bypass RLS, so the transaction switches to the restricted
+        app role. Both settings are transaction-local, so they can't leak through the pool.
+        The transaction commits when the block exits and rolls back if it raises.
+        """
+        async with self.sessionmaker() as session, session.begin():
+            await session.execute(text("SET LOCAL ROLE api_compass_app"))
+            await session.execute(
+                text("SELECT set_config('app.current_user_id', :user_id, true)"),
+                {"user_id": str(user_id)},
+            )
             yield session
 
     async def ping(self) -> bool:

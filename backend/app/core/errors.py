@@ -31,6 +31,16 @@ class NotFoundError(AppError):
     code = "not_found"
 
 
+class UnauthorizedError(AppError):
+    status_code = status.HTTP_401_UNAUTHORIZED
+    code = "unauthorized"
+
+
+class ServiceUnavailableError(AppError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    code = "service_unavailable"
+
+
 def _envelope(status_code: int, code: str, message: str, details: Any = None) -> JSONResponse:
     body: dict[str, Any] = {"code": code, "message": message}
     if details is not None:
