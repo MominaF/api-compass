@@ -5,7 +5,7 @@ import structlog
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import health, projects
+from app.api.v1 import health, projects, specs
 from app.core.auth import build_token_verifier
 from app.core.config import Settings, get_settings
 from app.core.errors import register_exception_handlers
@@ -47,6 +47,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     v1 = APIRouter(prefix=API_V1_PREFIX)
     v1.include_router(health.router)
     v1.include_router(projects.router)
+    v1.include_router(specs.router)
     app.include_router(v1)
     return app
 

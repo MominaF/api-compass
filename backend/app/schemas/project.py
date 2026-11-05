@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
+from app.schemas.spec import SpecSummary
+
 ProjectName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 ProjectDescription = Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
 
@@ -27,3 +29,5 @@ class ProjectRead(BaseModel):
     description: str | None
     created_at: datetime
     updated_at: datetime
+    # The most recent upload, whether or not it succeeded. None until the first upload.
+    latest_spec: SpecSummary | None = None

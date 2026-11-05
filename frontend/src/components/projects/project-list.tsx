@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
+import { SpecStatusBadge } from "@/components/projects/spec-status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { deleteProject, listProjects, type Project } from "@/lib/api";
@@ -24,10 +24,15 @@ import { deleteProject, listProjects, type Project } from "@/lib/api";
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 function ProjectCard({ project, onDelete }: { project: Project; onDelete: () => void }) {
+  const spec = project.latest_spec;
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="break-words">{project.name}</CardTitle>
+        <CardTitle className="break-words">
+          <Link href={`/projects/${project.id}`} className="underline-offset-4 hover:underline">
+            {project.name}
+          </Link>
+        </CardTitle>
         <CardDescription>Created {dateFormat.format(new Date(project.created_at))}</CardDescription>
         <CardAction>
           <Button
@@ -46,7 +51,16 @@ function ProjectCard({ project, onDelete }: { project: Project; onDelete: () => 
             {project.description}
           </p>
         )}
-        <Badge variant="secondary">No spec uploaded</Badge>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          <SpecStatusBadge spec={spec} />
+          {spec?.status === "ready" && (
+            <>
+              <span>OpenAPI {spec.openapi_version}</span>
+              <span>{spec.operation_count} endpoints</span>
+              <span>{spec.schema_count} schemas</span>
+            </>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
