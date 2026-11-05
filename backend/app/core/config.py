@@ -24,9 +24,8 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed browser origins.
     cors_origins: str = "http://localhost:3000"
 
-    # Supabase (wired in Phase 1). Only server-side values live here.
+    # Supabase project URL. Access tokens are verified against its public signing keys.
     supabase_url: str | None = None
-    supabase_jwt_secret: str | None = None
 
     @field_validator("database_url", mode="before")
     @classmethod

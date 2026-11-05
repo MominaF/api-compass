@@ -1,3 +1,5 @@
+import { getSupabase } from "@/lib/supabase";
+
 /**
  * Typed client for the FastAPI backend. All backend errors share one envelope:
  *   { "error": { "code": string, "message": string, "details"?: unknown } }
@@ -53,6 +55,46 @@ export async function apiFetch<T>(
   }
   throw new ApiError(res.status, "http_error", `Request failed with status ${res.status}.`, body);
 }
+
+/** Like apiFetch, but sends the user's access token. A rejected token ends the local session. */
+async function authedFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const supabase = getSupabase();
+  const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
+  if (!data.session) throw new ApiError(401, "unauthorized", "Sign in to continue.");
+  try {
+    return await apiFetch<T>(path, {
+      ...init,
+      headers: { ...init?.headers, Authorization: `Bearer ${data.session.access_token}` },
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      await supabase?.auth.signOut({ scope: "local" });
+    }
+    throw error;
+  }
+}
+
+export type Project = {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProjectInput = { name: string; description?: string };
+
+export const listProjects = () => authedFetch<Project[]>("/projects", { cache: "no-store" });
+
+export const createProject = (input: ProjectInput) =>
+  authedFetch<Project>("/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+export const deleteProject = (id: string) =>
+  authedFetch<void>(`/projects/${id}`, { method: "DELETE" });
 
 export type HealthResponse = {
   status: "ok" | "degraded";

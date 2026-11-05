@@ -91,9 +91,9 @@ The database integration test is skipped locally when no Postgres is reachable. 
 | `DATABASE_URL` | backend | Postgres connection string |
 | `CORS_ORIGINS` | backend | Comma-separated allowed browser origins |
 | `ENVIRONMENT`, `LOG_LEVEL`, `LOG_JSON` | backend | Runtime/logging config |
-| `SUPABASE_URL`, `SUPABASE_JWT_SECRET` | backend | Auth verification (Phase 1) |
+| `SUPABASE_URL` | backend | Fetches the public keys that verify access tokens |
 | `NEXT_PUBLIC_API_URL` | frontend | Backend base URL |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | frontend | Supabase client (Phase 1) |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | frontend | Supabase Auth in the browser |
 
 Secrets live only in untracked `.env` files. `.env.example` files document the keys.
 

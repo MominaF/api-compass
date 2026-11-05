@@ -40,6 +40,9 @@ services:
 
   frontend:
     build: ./frontend
+    env_file:
+      - path: ./frontend/.env.local
+        required: false
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     volumes:

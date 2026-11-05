@@ -5,7 +5,8 @@ import structlog
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import health
+from app.api.v1 import health, projects
+from app.core.auth import build_token_verifier
 from app.core.config import Settings, get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
@@ -22,6 +23,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.db = Database(settings)
+        app.state.token_verifier = build_token_verifier(settings)
         log.info("startup", environment=settings.environment)
         yield
         await app.state.db.dispose()
@@ -44,6 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     v1 = APIRouter(prefix=API_V1_PREFIX)
     v1.include_router(health.router)
+    v1.include_router(projects.router)
     app.include_router(v1)
     return app
 
