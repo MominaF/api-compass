@@ -74,17 +74,71 @@ async function authedFetch<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+export type SpecStatus = "processing" | "ready" | "failed";
+
+export type SpecIssue = { message: string; pointer: string | null };
+
+export type SpecSummary = {
+  id: string;
+  status: SpecStatus;
+  validation_errors: SpecIssue[] | null;
+  version_number: number;
+  source_filename: string;
+  format: string;
+  openapi_version: string | null;
+  api_title: string | null;
+  operation_count: number;
+  schema_count: number;
+  created_at: string;
+};
+
+export type SpecMetadata = {
+  version: string | null;
+  description: string | null;
+  servers: { url: string; description?: string }[];
+  security_schemes: Record<string, { type: string; scheme?: string; name?: string }>;
+};
+
+export type Spec = SpecSummary & { metadata_json: SpecMetadata | null };
+
+export type OperationSummary = {
+  id: string;
+  operation_id: string | null;
+  method: string;
+  path: string;
+  summary: string | null;
+  tags: string[];
+};
+
 export type Project = {
   id: string;
   name: string;
   description: string | null;
   created_at: string;
   updated_at: string;
+  latest_spec: SpecSummary | null;
 };
 
 export type ProjectInput = { name: string; description?: string };
 
 export const listProjects = () => authedFetch<Project[]>("/projects", { cache: "no-store" });
+
+export const getProject = (id: string) =>
+  authedFetch<Project>(`/projects/${id}`, { cache: "no-store" });
+
+export const listSpecs = (projectId: string) =>
+  authedFetch<Spec[]>(`/projects/${projectId}/specs`, { cache: "no-store" });
+
+/** Operations of the newest version that imported successfully. */
+export const listOperations = (projectId: string) =>
+  authedFetch<OperationSummary[]>(`/projects/${projectId}/operations`, { cache: "no-store" });
+
+/** Resolves even when the import fails: check the returned status and validation_errors. */
+export const uploadSpec = (projectId: string, file: File) => {
+  const body = new FormData();
+  body.append("file", file);
+  return authedFetch<Spec>(`/projects/${projectId}/specs`, { method: "POST", body });
+};
 
 export const createProject = (input: ProjectInput) =>
   authedFetch<Project>("/projects", {

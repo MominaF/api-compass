@@ -4,7 +4,7 @@
 
 Upload an OpenAPI specification and explore it through a deterministic endpoint explorer, a grounded AI assistant (RAG over the spec), natural-language request generation, and a built-in mock execution and testing engine.
 
-> Status: **Phase 0 (project setup) complete.** See [Roadmap](#roadmap).
+> Status: **Phase 2 (OpenAPI parser) complete.** See [Roadmap](#roadmap).
 
 ## Architecture
 
@@ -24,7 +24,9 @@ PostgreSQL + pgvector  (Supabase in production, Docker locally)
 | `backend/app/core/` | Settings (env-based), structured logging, centralized error envelope |
 | `backend/app/db/` | Async SQLAlchemy engine/session, declarative base |
 | `backend/app/api/v1/` | Versioned REST routes |
-| `backend/alembic/` | Database migrations (`0001` enables `pgcrypto` and `vector`) |
+| `backend/app/services/` | OpenAPI parser: safe loading, validation, and extraction of operations and schemas |
+| `backend/alembic/` | Database migrations, including row-level security policies |
+| `samples/` | The bundled Bookstore API specification |
 | `docker-compose.yml` | Local Postgres+pgvector, backend, frontend |
 | `.github/workflows/ci.yml` | Lint, type-check, migrate, test, build |
 
@@ -100,8 +102,8 @@ Secrets live only in untracked `.env` files. `.env.example` files document the k
 ## Roadmap
 
 - [x] **Phase 0:** Project setup (frontend, backend, Docker, migrations, health check, CI)
-- [ ] Phase 1: Authentication and projects
-- [ ] Phase 2: OpenAPI parser
+- [x] **Phase 1:** Authentication and projects
+- [x] **Phase 2:** OpenAPI parser (JSON/YAML upload, validation, operation and schema extraction, import status)
 - [ ] Phase 3: API explorer
 - [ ] Phase 4: RAG pipeline
 - [ ] Phase 5: AI assistant

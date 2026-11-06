@@ -41,6 +41,15 @@ class ServiceUnavailableError(AppError):
     code = "service_unavailable"
 
 
+class InvalidUploadError(AppError):
+    code = "invalid_upload"
+
+
+class UploadTooLargeError(AppError):
+    status_code = status.HTTP_413_CONTENT_TOO_LARGE
+    code = "upload_too_large"
+
+
 def _envelope(status_code: int, code: str, message: str, details: Any = None) -> JSONResponse:
     body: dict[str, Any] = {"code": code, "message": message}
     if details is not None:

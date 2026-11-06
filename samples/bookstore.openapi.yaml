@@ -1,0 +1,619 @@
+openapi: 3.1.0
+info:
+  title: Bookstore API
+  version: 1.0.0
+  summary: A fictional bookstore for trying out API COMPASS.
+  description: >-
+    Manage customers, browse the book catalog, and place orders. Everything here is fictional.
+  contact:
+    name: Bookstore API Support
+    email: support@bookstore.example
+servers:
+  - url: https://api.bookstore.example/v1
+    description: Production (fictional)
+  - url: https://sandbox.bookstore.example/v1
+    description: Sandbox (fictional)
+tags:
+  - name: Authentication
+    description: Exchange credentials for an access token.
+  - name: Customers
+    description: The people who buy books.
+  - name: Books
+    description: The catalog.
+  - name: Orders
+    description: Purchases made by customers.
+security:
+  - bearerAuth: []
+paths:
+  /auth/token:
+    post:
+      operationId: createToken
+      summary: Get an access token
+      description: Exchanges API credentials for a short-lived bearer token.
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+            example:
+              clientId: demo-client
+              clientSecret: demo-secret
+      responses:
+        "200":
+          description: Token issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Token"
+              example:
+                accessToken: eyJhbGciOiJub25lIn0.demo.token
+                tokenType: Bearer
+                expiresIn: 3600
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /customers:
+    get:
+      operationId: listCustomers
+      summary: List customers
+      description: Returns one page of customers, optionally filtered by email.
+      tags: [Customers]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: email
+          in: query
+          description: Only return the customer with this email address.
+          schema:
+            type: string
+            format: email
+      responses:
+        "200":
+          description: A page of customers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPage"
+              example:
+                items:
+                  - id: cus_001
+                    name: Ada Example
+                    email: ada@example.com
+                    createdAt: "2026-01-15T09:30:00Z"
+                page: 1
+                pageSize: 20
+                totalItems: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createCustomer
+      summary: Create a customer
+      description: Registers a new customer. Email addresses must be unique.
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerCreate"
+            example:
+              name: Ada Example
+              email: ada@example.com
+      responses:
+        "201":
+          description: Customer created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+              example:
+                id: cus_001
+                name: Ada Example
+                email: ada@example.com
+                createdAt: "2026-01-15T09:30:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: A customer with this email address already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: email_taken
+                message: A customer with this email address already exists.
+  /customers/{customerId}:
+    parameters:
+      - $ref: "#/components/parameters/CustomerId"
+    get:
+      operationId: getCustomer
+      summary: Get a customer
+      tags: [Customers]
+      responses:
+        "200":
+          description: The customer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateCustomer
+      summary: Update a customer
+      description: Changes only the fields you send.
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerUpdate"
+            example:
+              name: Ada Q. Example
+      responses:
+        "200":
+          description: The updated customer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /customers/{customerId}/orders:
+    parameters:
+      - $ref: "#/components/parameters/CustomerId"
+    get:
+      operationId: listCustomerOrders
+      summary: List a customer's orders
+      tags: [Orders, Customers]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: A page of the customer's orders.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /books:
+    get:
+      operationId: listBooks
+      summary: List books
+      description: Returns one page of the catalog. The catalog is public.
+      tags: [Books]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: author
+          in: query
+          description: Only return books by this author.
+          schema:
+            type: string
+        - name: inStock
+          in: query
+          description: Only return books that are in stock.
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: A page of books.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookPage"
+              example:
+                items:
+                  - id: bok_001
+                    title: The Imaginary Atlas
+                    author: Sam Placeholder
+                    priceCents: 1999
+                    stock: 12
+                page: 1
+                pageSize: 20
+                totalItems: 1
+    post:
+      operationId: createBook
+      summary: Add a book
+      tags: [Books]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookCreate"
+            example:
+              title: The Imaginary Atlas
+              author: Sam Placeholder
+              priceCents: 1999
+              stock: 12
+      responses:
+        "201":
+          description: Book added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /books/{bookId}:
+    get:
+      operationId: getBook
+      summary: Get a book
+      tags: [Books]
+      security: []
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          description: The book's ID.
+          schema:
+            type: string
+          example: bok_001
+      responses:
+        "200":
+          description: The book.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /orders:
+    get:
+      operationId: listOrders
+      summary: List orders
+      tags: [Orders]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: status
+          in: query
+          description: Only return orders with this status.
+          schema:
+            $ref: "#/components/schemas/OrderStatus"
+      responses:
+        "200":
+          description: A page of orders.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createOrder
+      summary: Create an order
+      description: Places an order for a customer. Fails if any book is out of stock.
+      tags: [Orders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderCreate"
+            example:
+              customerId: cus_001
+              items:
+                - bookId: bok_001
+                  quantity: 2
+      responses:
+        "201":
+          description: Order created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+              example:
+                id: ord_001
+                customerId: cus_001
+                status: pending
+                items:
+                  - bookId: bok_001
+                    quantity: 2
+                totalCents: 3998
+                createdAt: "2026-02-01T12:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: A book in the order is out of stock.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: out_of_stock
+                message: Not enough copies of bok_001 are in stock.
+  /orders/{orderId}:
+    get:
+      operationId: getOrder
+      summary: Get an order
+      tags: [Orders]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          description: The order's ID.
+          schema:
+            type: string
+          example: ord_001
+      responses:
+        "200":
+          description: The order.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Send the token from POST /auth/token as a bearer token.
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: The page to return, starting at 1.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      description: How many items to return per page.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    CustomerId:
+      name: customerId
+      in: path
+      required: true
+      description: The customer's ID.
+      schema:
+        type: string
+      example: cus_001
+  responses:
+    BadRequest:
+      description: The request is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_request
+            message: The email field is required.
+    Unauthorized:
+      description: The access token is missing or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unauthorized
+            message: Send a valid access token.
+    NotFound:
+      description: The resource doesn't exist.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: The resource doesn't exist.
+  schemas:
+    Error:
+      type: object
+      description: The body of every error response.
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    Pagination:
+      type: object
+      description: The fields every paginated response includes.
+      required: [page, pageSize, totalItems]
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalItems:
+          type: integer
+    TokenRequest:
+      type: object
+      required: [clientId, clientSecret]
+      properties:
+        clientId:
+          type: string
+        clientSecret:
+          type: string
+          format: password
+    Token:
+      type: object
+      required: [accessToken, tokenType, expiresIn]
+      properties:
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+          const: Bearer
+        expiresIn:
+          type: integer
+          description: Seconds until the token expires.
+    Customer:
+      type: object
+      description: A person who buys books.
+      required: [id, name, email, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+    CustomerCreate:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+    CustomerUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+    CustomerPage:
+      allOf:
+        - $ref: "#/components/schemas/Pagination"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Customer"
+    Book:
+      type: object
+      description: A book in the catalog.
+      required: [id, title, author, priceCents, stock]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+        priceCents:
+          type: integer
+          minimum: 0
+        stock:
+          type: integer
+          minimum: 0
+    BookCreate:
+      type: object
+      required: [title, author, priceCents]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        author:
+          type: string
+          minLength: 1
+        priceCents:
+          type: integer
+          minimum: 0
+        stock:
+          type: integer
+          minimum: 0
+          default: 0
+    BookPage:
+      allOf:
+        - $ref: "#/components/schemas/Pagination"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Book"
+    OrderStatus:
+      type: string
+      description: Where an order is in its lifecycle.
+      enum: [pending, paid, shipped, cancelled]
+    OrderItem:
+      type: object
+      required: [bookId, quantity]
+      properties:
+        bookId:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+    Order:
+      type: object
+      description: A purchase made by a customer.
+      required: [id, customerId, status, items, totalCents, createdAt]
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        totalCents:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+    OrderCreate:
+      type: object
+      required: [customerId, items]
+      properties:
+        customerId:
+          type: string
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/OrderItem"
+    OrderPage:
+      allOf:
+        - $ref: "#/components/schemas/Pagination"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Order"
