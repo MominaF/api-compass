@@ -4,7 +4,7 @@
 
 Upload an OpenAPI specification and explore it through a deterministic endpoint explorer, a grounded AI assistant (RAG over the spec), natural-language request generation, and a built-in mock execution and testing engine.
 
-> Status: **Phase 2 (OpenAPI parser) complete.** See [Roadmap](#roadmap).
+> Status: **Phase 3 (API explorer) complete.** See [Roadmap](#roadmap).
 
 ## Architecture
 
@@ -104,7 +104,7 @@ Secrets live only in untracked `.env` files. `.env.example` files document the k
 - [x] **Phase 0:** Project setup (frontend, backend, Docker, migrations, health check, CI)
 - [x] **Phase 1:** Authentication and projects
 - [x] **Phase 2:** OpenAPI parser (JSON/YAML upload, validation, operation and schema extraction, import status)
-- [ ] Phase 3: API explorer
+- [x] **Phase 3:** API explorer (endpoint sidebar, search and method filters, endpoint details, schema viewer, authentication details)
 - [ ] Phase 4: RAG pipeline
 - [ ] Phase 5: AI assistant
 - [ ] Phase 6: Request builder

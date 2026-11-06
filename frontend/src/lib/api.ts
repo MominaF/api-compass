@@ -96,7 +96,18 @@ export type SpecMetadata = {
   version: string | null;
   description: string | null;
   servers: { url: string; description?: string }[];
-  security_schemes: Record<string, { type: string; scheme?: string; name?: string }>;
+  security_schemes: Record<string, SecurityScheme>;
+};
+
+export type SecurityScheme = {
+  type: string;
+  description?: string;
+  scheme?: string;
+  bearerFormat?: string;
+  name?: string;
+  in?: string;
+  openIdConnectUrl?: string;
+  flows?: Record<string, { authorizationUrl?: string; tokenUrl?: string }>;
 };
 
 export type Spec = SpecSummary & { metadata_json: SpecMetadata | null };
@@ -107,8 +118,22 @@ export type OperationSummary = {
   method: string;
   path: string;
   summary: string | null;
+  description: string | null;
   tags: string[];
 };
+
+/** The parts below come straight from the uploaded file, so their shape isn't guaranteed. */
+export type Operation = OperationSummary & {
+  spec_version_id: string;
+  parameters_json: unknown[];
+  request_body_json: Record<string, unknown> | null;
+  responses_json: Record<string, unknown>;
+  security_json: unknown[];
+};
+
+export type ApiSchema = { id: string; schema_name: string; definition: unknown };
+
+export type OperationFilters = { specId: string; query?: string; methods?: string[] };
 
 export type Project = {
   id: string;
@@ -129,9 +154,22 @@ export const getProject = (id: string) =>
 export const listSpecs = (projectId: string) =>
   authedFetch<Spec[]>(`/projects/${projectId}/specs`, { cache: "no-store" });
 
-/** Operations of the newest version that imported successfully. */
-export const listOperations = (projectId: string) =>
-  authedFetch<OperationSummary[]>(`/projects/${projectId}/operations`, { cache: "no-store" });
+export const listOperations = (projectId: string, filters: OperationFilters) => {
+  const params = new URLSearchParams({ spec_id: filters.specId });
+  if (filters.query) params.set("q", filters.query);
+  for (const method of filters.methods ?? []) params.append("method", method);
+  return authedFetch<OperationSummary[]>(`/projects/${projectId}/operations?${params}`, {
+    cache: "no-store",
+  });
+};
+
+export const getOperation = (projectId: string, operationId: string) =>
+  authedFetch<Operation>(`/projects/${projectId}/operations/${operationId}`, { cache: "no-store" });
+
+export const listSchemas = (projectId: string, specId: string) =>
+  authedFetch<ApiSchema[]>(`/projects/${projectId}/schemas?spec_id=${specId}`, {
+    cache: "no-store",
+  });
 
 /** Resolves even when the import fails: check the returned status and validation_errors. */
 export const uploadSpec = (projectId: string, file: File) => {

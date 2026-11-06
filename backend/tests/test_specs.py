@@ -383,3 +383,126 @@ async def test_deleting_a_project_removes_its_records(
                 text(f"SELECT count(*) FROM {table} WHERE {column} = :id"), {"id": value}
             )
             assert count == 0, table
+
+
+async def _search(client: AsyncClient, user: UUID, project_id: str, **params: Any) -> Any:
+    return await client.get(
+        f"/api/v1/projects/{project_id}/operations", params=params, headers=auth(user)
+    )
+
+
+def _ids(response: Any) -> list[str]:
+    assert response.status_code == 200, response.text
+    return [operation["operation_id"] for operation in response.json()]
+
+
+async def test_search_and_filter_operations(client: AsyncClient, make_user: MakeUser) -> None:
+    user = make_user()
+    project_id = await _project(client, user)
+    await _upload(client, user, project_id, BOOKSTORE.read_bytes(), "b.yaml")
+
+    async def search(**params: Any) -> list[str]:
+        return _ids(await _search(client, user, project_id, **params))
+
+    assert len(await search()) == 12
+    # Each searchable field: path, operation ID, summary, description, tag and method.
+    assert await search(q="/auth/token") == ["createToken"]
+    assert await search(q="UPDATECUSTOMER") == ["updateCustomer"]
+    assert await search(q="create an order") == ["createOrder"]
+    assert await search(q="short-lived") == ["createToken"]
+    assert "createToken" in await search(q="authentication")
+    assert await search(q="patch") == ["updateCustomer"]
+    # Words can match different fields, in any order.
+    assert await search(q="orders post") == ["createOrder"]
+    assert await search(q="nothing-matches-this") == []
+    assert len(await search(q="   ")) == 12
+
+    assert await search(method="patch") == ["updateCustomer"]
+    assert await search(method=["PATCH", "DELETE"]) == ["updateCustomer"]
+    assert len(await search(method="POST")) == 4
+    assert await search(tag="Authentication") == ["createToken"]
+    assert await search(tag="auth") == []
+    assert await search(q="order", method="POST", tag="Orders") == ["createOrder"]
+
+
+async def test_search_treats_wildcards_as_text(client: AsyncClient, make_user: MakeUser) -> None:
+    user = make_user()
+    project_id = await _project(client, user)
+    await _upload(client, user, project_id, BOOKSTORE.read_bytes(), "b.yaml")
+
+    for wildcard in ("%", "_", "\\"):
+        assert _ids(await _search(client, user, project_id, q=wildcard)) == []
+
+
+async def test_search_rejects_text_postgres_cannot_hold(
+    client: AsyncClient, make_user: MakeUser
+) -> None:
+    user = make_user()
+    project_id = await _project(client, user)
+
+    for params in ({"q": "a\x00"}, {"tag": "a\x00"}, {"method": "a\x00"}, {"q": "a" * 201}):
+        r = await _search(client, user, project_id, **params)
+        assert r.status_code == 422, params
+
+
+async def test_search_only_covers_the_chosen_version(
+    client: AsyncClient, make_user: MakeUser
+) -> None:
+    user = make_user()
+    project_id = await _project(client, user)
+    old = (await _upload(client, user, project_id, BOOKSTORE.read_bytes(), "b.yaml")).json()
+    await _upload(client, user, project_id)
+
+    assert _ids(await _search(client, user, project_id, q="order")) == []
+    assert len(_ids(await _search(client, user, project_id, q="order", spec_id=old["id"]))) > 0
+
+
+async def test_search_cannot_reach_another_users_project(
+    client: AsyncClient, make_user: MakeUser
+) -> None:
+    owner, other = make_user(), make_user()
+    project_id = await _project(client, owner)
+    await _upload(client, owner, project_id, BOOKSTORE.read_bytes(), "b.yaml")
+
+    r = await _search(client, other, project_id, q="order", method="POST")
+    assert r.status_code == 404
+
+
+async def test_details_keep_the_order_of_the_specification(
+    client: AsyncClient, make_user: MakeUser
+) -> None:
+    user = make_user()
+    project_id = await _project(client, user)
+    # JSONB would store these shortest key first.
+    fields = ["longest_field_name", "mid_name", "a"]
+    example = dict.fromkeys(fields, "x")
+    schema = {"type": "object", "properties": {name: {"type": "string"} for name in fields}}
+    document = {
+        "openapi": "3.1.0",
+        "info": {"title": "Order", "version": "1"},
+        "paths": {
+            "/a": {
+                "post": {
+                    "requestBody": {"content": {"application/json": {"schema": schema}}},
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {"application/json": {"example": example}},
+                        }
+                    },
+                }
+            }
+        },
+        "components": {"schemas": {"Thing": schema}},
+    }
+    await _upload(client, user, project_id, json.dumps(document))
+
+    base = f"/api/v1/projects/{project_id}"
+    summary = (await client.get(f"{base}/operations", headers=auth(user))).json()[0]
+    detail = (await client.get(f"{base}/operations/{summary['id']}", headers=auth(user))).json()
+    body_schema = detail["request_body_json"]["content"]["application/json"]["schema"]
+    assert list(body_schema["properties"]) == fields
+    assert list(detail["responses_json"]["200"]["content"]["application/json"]["example"]) == fields
+
+    stored = (await client.get(f"{base}/schemas", headers=auth(user))).json()[0]
+    assert list(stored["definition"]["properties"]) == fields

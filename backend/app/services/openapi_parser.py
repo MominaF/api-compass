@@ -343,7 +343,7 @@ def _extract_operation(
     # An operation's parameter replaces a path-level one with the same name and location.
     parameters: dict[tuple[str, str], Any] = {}
     for raw in [*shared_parameters, *(operation.get("parameters") or [])]:
-        parameter = _dereference(document, raw)
+        parameter = _dereference_with_examples(document, raw)
         parameters[(parameter["name"], parameter["in"])] = parameter
 
     request_body = operation.get("requestBody")
@@ -355,9 +355,11 @@ def _extract_operation(
         description=operation.get("description"),
         tags=operation.get("tags") or [],
         parameters=list(parameters.values()),
-        request_body=None if request_body is None else _dereference(document, request_body),
+        request_body=(
+            None if request_body is None else _dereference_with_examples(document, request_body)
+        ),
         responses={
-            code: _dereference(document, response)
+            code: _dereference_with_examples(document, response)
             for code, response in (operation.get("responses") or {}).items()
         },
         # An empty list on the operation means "no auth", so only a missing field inherits.
@@ -417,6 +419,28 @@ def _dereference(document: dict[str, Any], node: Any) -> Any:
         siblings = {key: value for key, value in node.items() if key != "$ref"}
         node = {**target, **siblings} if isinstance(target, dict) else target
     return node
+
+
+def _dereference_with_examples(document: dict[str, Any], node: Any) -> Any:
+    """Dereference a parameter, request body or response, along with its media types and examples.
+
+    Example targets aren't stored as records of their own, so a reference left in place would
+    point at nothing the explorer can show.
+    """
+    node = _dereference(document, node)
+    if not isinstance(node, dict):
+        return node
+    inlined = dict(node)
+    if isinstance(node.get("examples"), dict):
+        inlined["examples"] = {
+            name: _dereference(document, example) for name, example in node["examples"].items()
+        }
+    if isinstance(node.get("content"), dict):
+        inlined["content"] = {
+            media_type: _dereference_with_examples(document, media)
+            for media_type, media in node["content"].items()
+        }
+    return inlined
 
 
 def _escape_pointer(part: str) -> str:
