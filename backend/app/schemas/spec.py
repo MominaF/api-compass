@@ -42,12 +42,12 @@ class OperationSummary(_FromOrm):
     method: str
     path: str
     summary: str | None
+    description: str | None
     tags: list[str]
 
 
 class OperationRead(OperationSummary):
     spec_version_id: UUID
-    description: str | None
     parameters_json: list[Any]
     request_body_json: dict[str, Any] | None
     responses_json: dict[str, Any]

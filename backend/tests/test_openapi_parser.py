@@ -365,3 +365,45 @@ def test_does_not_construct_python_objects_from_yaml(content: bytes) -> None:
 )
 def test_rejects_values_postgres_cannot_store(content: bytes) -> None:
     assert _issues(content)
+
+
+def test_inlines_referenced_examples() -> None:
+    media = {
+        "examples": {
+            "named": {"$ref": "#/components/examples/Ada"},
+            "direct": {"value": {"name": "Grace"}},
+        }
+    }
+    parsed = _parse(
+        _spec(
+            paths={
+                "/a": {
+                    "post": {
+                        "parameters": [
+                            {
+                                "name": "q",
+                                "in": "query",
+                                "schema": {"type": "string"},
+                                "examples": {"named": {"$ref": "#/components/examples/Ada"}},
+                            }
+                        ],
+                        "requestBody": {"$ref": "#/components/requestBodies/Body"},
+                        "responses": {"200": {"description": "OK", "content": {"a/json": media}}},
+                    }
+                }
+            },
+            components={
+                "examples": {"Ada": {"summary": "Ada", "value": {"name": "Ada"}}},
+                "requestBodies": {"Body": {"content": {"a/json": media}}},
+            },
+        )
+    )
+    operation = parsed.operations[0]
+    ada = {"summary": "Ada", "value": {"name": "Ada"}}
+    assert operation.parameters[0]["examples"]["named"] == ada
+    assert operation.request_body is not None
+    assert operation.request_body["content"]["a/json"]["examples"]["named"] == ada
+    examples = operation.responses["200"]["content"]["a/json"]["examples"]
+    assert examples == {"named": ada, "direct": {"value": {"name": "Grace"}}}
+    # The stored document stays exactly as uploaded.
+    assert parsed.raw["components"]["requestBodies"]["Body"]["content"]["a/json"] == media

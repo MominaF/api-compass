@@ -9,7 +9,8 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, status
-from sqlalchemy import func, select
+from pydantic import StringConstraints
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only, undefer
 from starlette.datastructures import UploadFile
@@ -242,10 +243,50 @@ SpecIdQuery = Annotated[
 ]
 
 
+# Postgres text can't hold NUL, so refuse it here rather than fail in the query.
+_FilterText = Annotated[str, StringConstraints(max_length=200, pattern=r"^[^\x00]*$")]
+
+
+def _search_conditions(query: str) -> list[ColumnElement[bool]]:
+    """Every word must appear in some searchable field, so "post orders" finds POST /orders."""
+    searchable = func.concat_ws(
+        " ",
+        Operation.method,
+        Operation.path,
+        Operation.operation_id,
+        Operation.summary,
+        Operation.description,
+        func.array_to_string(Operation.tags, " "),
+    )
+    return [searchable.icontains(word, autoescape=True) for word in query.split()]
+
+
 @router.get("/operations", response_model=list[OperationSummary])
 async def list_operations(
-    project_id: UUID, user: CurrentUser, db: DbDep, spec_id: SpecIdQuery = None
+    project_id: UUID,
+    user: CurrentUser,
+    db: DbDep,
+    spec_id: SpecIdQuery = None,
+    method: Annotated[
+        list[_FilterText] | None,
+        Query(description="HTTP methods to include. Repeat for several."),
+    ] = None,
+    tag: Annotated[_FilterText | None, Query(description="Only operations with this tag.")] = None,
+    q: Annotated[
+        _FilterText | None,
+        Query(
+            description=(
+                "Words to find in the method, path, operation ID, summary, description or tags."
+            )
+        ),
+    ] = None,
 ) -> list[Operation]:
+    conditions = _search_conditions(q or "")
+    if method:
+        conditions.append(Operation.method.in_([name.upper() for name in method]))
+    if tag is not None:
+        conditions.append(Operation.tags.contains([tag]))
+
     async with db.user_session(user.id) as session:
         browsable = await _browsable_spec_id(session, project_id, spec_id)
         result = await session.scalars(
@@ -256,10 +297,11 @@ async def list_operations(
                     Operation.method,
                     Operation.path,
                     Operation.summary,
+                    Operation.description,
                     Operation.tags,
                 )
             )
-            .where(Operation.spec_version_id == browsable)
+            .where(Operation.spec_version_id == browsable, *conditions)
             .order_by(Operation.position)
         )
         return list(result)

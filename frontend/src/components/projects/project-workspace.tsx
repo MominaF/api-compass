@@ -6,37 +6,23 @@ import { useParams } from "next/navigation";
 import { useRef, useState, type ChangeEvent } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
+import { ApiExplorer } from "@/components/explorer/api-explorer";
 import { SpecStatusBadge } from "@/components/projects/spec-status-badge";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ApiError,
   getProject,
-  listOperations,
   listSpecs,
   uploadSpec,
-  type OperationSummary,
   type Spec,
   type SpecSummary,
 } from "@/lib/api";
 import { SPEC_FILE_TYPES, specFileError } from "@/lib/spec-file";
 
-const UNTAGGED = "Other";
-
 /** A 422 means the ID in the URL isn't a valid UUID, so no such project can exist. */
 function isMissingProject(error: unknown) {
   return error instanceof ApiError && (error.status === 404 || error.status === 422);
-}
-
-/** Groups by first tag only, so an operation with several tags is still listed once. */
-function groupByTag(operations: OperationSummary[]) {
-  const groups = new Map<string, OperationSummary[]>();
-  for (const operation of operations) {
-    const tag = operation.tags[0] ?? UNTAGGED;
-    groups.set(tag, [...(groups.get(tag) ?? []), operation]);
-  }
-  return [...groups.entries()];
 }
 
 function SpecUpload({ projectId, hasSpec }: { projectId: string; hasSpec: boolean }) {
@@ -161,61 +147,6 @@ function SpecOverview({ spec }: { spec: Spec }) {
   );
 }
 
-function OperationList({ projectId, specId }: { projectId: string; specId: string }) {
-  const { data, error, isPending, refetch } = useQuery({
-    // Keyed by version, so a new upload refetches the list.
-    queryKey: ["operations", projectId, specId],
-    queryFn: () => listOperations(projectId),
-  });
-
-  if (isPending) {
-    return (
-      <p role="status" className="text-sm text-muted-foreground">
-        Loading endpoints…
-      </p>
-    );
-  }
-  if (error) {
-    return (
-      <div role="alert" className="flex flex-col items-start gap-3">
-        <p className="text-sm text-destructive">{error.message}</p>
-        <Button variant="outline" onClick={() => void refetch()}>
-          Try again
-        </Button>
-      </div>
-    );
-  }
-  if (data.length === 0) {
-    return <p className="text-sm text-muted-foreground">This specification has no endpoints.</p>;
-  }
-
-  return (
-    <div className="flex flex-col gap-6">
-      {groupByTag(data).map(([tag, operations]) => (
-        <section key={tag} aria-label={tag}>
-          <h3 className="mb-2 text-sm font-medium">{tag}</h3>
-          <ul className="divide-y rounded-lg border">
-            {operations.map((operation) => (
-              <li
-                key={operation.id}
-                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-sm"
-              >
-                <Badge variant="outline" className="font-mono">
-                  {operation.method}
-                </Badge>
-                <code className="break-all">{operation.path}</code>
-                {operation.summary && (
-                  <span className="text-muted-foreground">{operation.summary}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
-  );
-}
-
 function BackToDashboard() {
   return (
     <Link href="/dashboard" className={buttonVariants({ variant: "outline" })}>
@@ -293,13 +224,12 @@ export function ProjectWorkspace() {
         </p>
       )}
       {browsable && (
-        <>
-          <SpecOverview spec={browsable} />
-          <div>
-            <h2 className="mb-4 text-lg font-semibold tracking-tight">Endpoints</h2>
-            <OperationList projectId={projectId} specId={browsable.id} />
-          </div>
-        </>
+        <ApiExplorer
+          key={projectId}
+          projectId={projectId}
+          spec={browsable}
+          overview={<SpecOverview spec={browsable} />}
+        />
       )}
     </div>
   );
